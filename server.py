@@ -7,7 +7,7 @@ import struct
 import time
 from sock_v5 import isUnEstablishedSockV5, addUnEstablishedSockV5, makeSockV5Connection, unEstablishedSocks
 
-CHUNCK_SIZE=1024
+CHUNCK_SIZE=10240
 
 # 所有socket数据：地址，套接字，未发送完的数据
 peers = []	# (addr, fd, [])
@@ -73,7 +73,7 @@ def process_tunnel_data(new_data):
 		current_addr = None
 		# 前一个数据块处理完毕，继续处理下一个数据块
 		if tunnel_data:
-			read_tunnel_data()
+			process_tunnel_data('')
 		return
 
 def del_peer_by_fd(_fd):
@@ -193,5 +193,6 @@ if __name__ == '__main__':
 			break
 
 		if not data_travaling:
-			print '没有数据传输，歇5s'
+			#print '没有数据传输，歇5s'
 			time.sleep(5)
+

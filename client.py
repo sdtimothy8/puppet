@@ -6,7 +6,7 @@ import socket
 import struct
 import time
 
-CHUNCK_SIZE=1024
+CHUNCK_SIZE=10240
 
 # 所有socket数据：地址，套接字，未发送完的数据
 peers = []	#(addr, fd, [])
@@ -15,12 +15,14 @@ def get_server_address():
 	'''
 		获取服务器IP+Port地址
 	'''
+	return ('127.0.0.1', 9527)
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock.settimeout(10)
 	try:
 		sock.connect(('thickforest.github.io', 80))
 		sock.send('GET /ip HTTP/1.0\r\nHost: thickforest.github.io\r\n\r\n')
 		page = sock.recv(CHUNCK_SIZE)
+		sock.close()
 	except socket.error, e:
 		return None
 	last_line = ''
@@ -44,6 +46,12 @@ def clear_tunnel_cache():
 	'''
 	global tunnel_data
 	tunnel_data = ''
+
+
+def debug():
+	import pdb
+	pdb.set_trace()
+
 
 current_addr = None	# Tunnel中正在处理中的数据块地址
 remain_len = 0		# Tunnel中数据块剩余长度
@@ -70,6 +78,7 @@ def process_tunnel_data(new_data):
 		if remain_len == 0:
 			# 数据块头部信息中的Len=0,表示关闭连接
 			del_peer_by_addr(current_addr)
+			return
 	else:
 		# 之前的数据块未读取完毕，继续读取并处理
 		data = tunnel_data
@@ -106,6 +115,7 @@ def del_peer_by_addr(addr):
 	for peer in peers:
 		_addr, fd, x = peer
 		if _addr== addr:
+			print '将[%s]移出peers' % str(addr)
 			break
 	fd.close()
 	peers.remove(peer)
@@ -159,6 +169,7 @@ if __name__ == '__main__':
 			tunnel_sock.connect(server_addr)
 		except socket.error, e:
 			print '主动连接服务端失败，5s后重试'
+			tunnel_sock.close()
 			time.sleep(5)
 			continue
 
@@ -175,6 +186,7 @@ if __name__ == '__main__':
 				fds.append(fd)
 
 			readable, writeable, exceptional = select.select(fds, fds, [], 10)
+			debug()
 
 			tunnel_error = False	# 通道错误标志
 			data_travaling = False	# 检测是否有数据传输
@@ -238,5 +250,6 @@ if __name__ == '__main__':
 				break
 
 			if not data_travaling:
-				print '没有数据传输，歇5s'
+				#print '没有数据传输，歇5s'
 				time.sleep(5)
+
