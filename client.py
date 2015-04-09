@@ -186,7 +186,6 @@ if __name__ == '__main__':
 				fds.append(fd)
 
 			readable, writeable, exceptional = select.select(fds, fds, [], 10)
-			debug()
 
 			tunnel_error = False	# 通道错误标志
 			data_travaling = False	# 检测是否有数据传输
@@ -211,6 +210,8 @@ if __name__ == '__main__':
 					ip, port = addr
 					a,b,c,d = map(int, ip.split('.'))
 					head = struct.pack('!4BHI', a, b, c, d, port, len(new_data))
+					if len(new_data) == 0:
+						del_peer_by_fd(fd)
 					# 将从真正的对端读取的数据,加上数据块头部信息，一并写入通道
 					tunnel_write_queue.append(head + new_data)
 
@@ -251,5 +252,5 @@ if __name__ == '__main__':
 
 			if not data_travaling:
 				#print '没有数据传输，歇5s'
-				time.sleep(5)
+				time.sleep(1)
 

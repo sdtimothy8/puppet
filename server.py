@@ -12,7 +12,11 @@ CHUNCK_SIZE=10240
 # 所有socket数据：地址，套接字，未发送完的数据
 peers = []	# (addr, fd, [])
 
-# sendto_dest 供 lib.py 内的 clear_tunnel_cache, process_tunnel_data 函数调用
+def debug():
+	import pdb
+	pdb.set_trace()
+
+# sendto_dest 仅供 process_tunnel_data 函数调用
 def sendto_dest(addr, data):
 	global peers
 	for _addr, fd, write_queue in peers:
@@ -56,6 +60,9 @@ def process_tunnel_data(new_data):
 		if remain_len == 0:
 			# 数据块头部信息中的Len=0,表示关闭连接
 			del_peer_by_addr(current_addr)
+			tunnel_data = data
+			process_tunnel_data('')
+			return
 	else:
 		# 之前的数据块未读取完毕，继续读取并处理
 		data = tunnel_data
@@ -74,31 +81,33 @@ def process_tunnel_data(new_data):
 		# 前一个数据块处理完毕，继续处理下一个数据块
 		if tunnel_data:
 			process_tunnel_data('')
-		return
 
 def del_peer_by_fd(_fd):
 	global peers
 	for peer in peers:
 		addr, fd, x = peer
 		if fd == _fd:
-			print '将[%s]移出peers' % str(addr)
+			print '将[%s, %d]移出peers' % (str(addr), _fd.fileno())
 			break
 	fd.close()
 	peers.remove(peer)
 
 def del_peer_by_addr(addr):
 	global peers
+	found = False
 	for peer in peers:
 		_addr, fd, x = peer
-		if _addr== addr:
+		if _addr == addr:
+			found = True
+			print '将[%d, %s]移出peers' % (fd.fileno(), str(addr))
 			break
-	fd.close()
-	peers.remove(peer)
-
-def debug():
-	import pdb
-	pdb.set_trace()
-
+	if found:
+		fd.close()
+		peers.remove(peer)
+	else:
+		print '[del_peer_by_addr]can not found [%s] in peers' % str(addr)
+		for addr, fd, x in peers:
+			print '[del_peer_by_addr]', addr, fd
 
 if __name__ == '__main__':
 	server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -135,6 +144,7 @@ if __name__ == '__main__':
 			if fd == server:
 				tunnel_sock, addr = server.accept()
 				tunnel_write_queue = []
+				print '肉鸡上线[%s]' % str(addr)
 				peers.append((addr, tunnel_sock, tunnel_write_queue))
 			elif fd == local_server:
 				local_client_sock ,local_client_addr = local_server.accept()
@@ -152,25 +162,30 @@ if __name__ == '__main__':
 					if addr != None:
 						peers.append((addr, fd, []))
 				else:
-					# 向sockv5客户端写数据
-					new_data = fd.recv(CHUNCK_SIZE)
-					found = False
-					for addr, _fd, write_queue in peers:
-						if _fd == fd:
-							found = True
-							break
+					# 从sockv5客户端读取数据
+					try:
+						new_data = fd.recv(CHUNCK_SIZE)
+					except socket.error, e:
+						print e
+						new_data = ''
 					if not new_data:
 						del_peer_by_fd(fd)
-					if found:
-						print '从本地连接读取[%d]数据,开始送至隧道写队列[%s]' % (len(new_data), str(addr))
-						ip, port = addr
-						a,b,c,d = map(int, ip.split('.'))
-						head = struct.pack('!4BHI', a, b, c, d, port, len(new_data))
-						# 将从本地连接读取的数据,加上数据块头部信息，一并写入通道
-						tunnel_write_queue.append(head + new_data)
 					else:
-						print 'Where to send this data?'
-						pass
+						found = False
+						for addr, _fd, write_queue in peers:
+							if _fd == fd:
+								found = True
+								break
+						if found:
+							print '从本地连接读取[%d]数据,开始送至隧道写队列[%s]' % (len(new_data), str(addr))
+							ip, port = addr
+							a,b,c,d = map(int, ip.split('.'))
+							head = struct.pack('!4BHI', a, b, c, d, port, len(new_data))
+							# 将从本地连接读取的数据,加上数据块头部信息，一并写入通道
+							tunnel_write_queue.append(head + new_data)
+						else:
+							print 'Where to send this data?'
+							pass
 				
 
 		for fd in writeable:
@@ -194,5 +209,5 @@ if __name__ == '__main__':
 
 		if not data_travaling:
 			#print '没有数据传输，歇5s'
-			time.sleep(5)
+			time.sleep(1)
 
