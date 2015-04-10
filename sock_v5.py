@@ -17,16 +17,16 @@ def isUnEstablishedSockV5(fd):
 	return False
 	
 
-def addUnEstablishedSockV5(addr, fd):
+def addUnEstablishedSockV5(local_addr, fd):
 	global socks
-	socks.append([addr, fd, None, INIT_STATE])
+	socks.append([local_addr, fd, None, INIT_STATE])
 
 
 def makeSockV5Connection(fd):
 	global socks
 	found = False
 	for sock in socks:
-		addr, _fd, x, state = sock
+		local_addr, _fd, x, state = sock
 		if fd == _fd:
 			found = True
 			break
@@ -46,10 +46,10 @@ def makeSockV5Connection(fd):
 		sock[3] = DEST_CONFIRM
 		socks.remove(sock)
 
-		ip, port = addr
+		ip, port = local_addr
 		a,b,c,d = map(int, ip.split('.'))
 		fd.send(struct.pack('!8BH',5,0,0,1,a,b,c,d,port))
-		return dest_addr
+		return (dest_addr, local_addr)
 
 
 def unEstablishedSocks():
