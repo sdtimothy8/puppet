@@ -139,25 +139,28 @@ if __name__ == '__main__':
 
 	while True:
 
-		fds = []
-		for x, fd, x in peers:
-			fds.append(fd)
-		fds.extend(unEstablishedSocks())
+		rfds = []
+		wfds = []
+		for x, fd, write_queue in peers:
+			rfds.append(fd)
+			if write_queue:
+				wfds.append(fd)
+		rfds.extend(unEstablishedSocks())
 		if tunnel_sock:
-			fds.append(tunnel_sock)
-		rfds = fds[:]
+			rfds.append(tunnel_sock)
+			if tunnel_write_queue:
+				wfds.append(tunnel_sock)
 		if tunnel_sock == None:
 			rfds.append(server)
 		rfds.append(local_server)
 
-		readable, writeable, exceptional = select.select(rfds, fds, [], 10)
+		#print 'select: %d %d' % (len(rfds), len(wfds))
+		readable, writeable, exceptional = select.select(rfds, wfds, [], 30)
 		
 		tunnel_error = False	# 通道错误标志
-		data_travaling = False	# 检测是否有数据传输
 		
 		# 处理所有可读套接字
 		for fd in readable:
-			data_travaling = True
 			if fd == server:
 				tunnel_sock, addr = server.accept()
 				tunnel_write_queue = []
@@ -238,7 +241,6 @@ if __name__ == '__main__':
 					found = True
 					break
 			if found:
-				data_travaling = True
 				try:
 					# 将数据写入真正的对端
 					data = write_queue.pop(0)
@@ -259,10 +261,6 @@ if __name__ == '__main__':
 		# Tunnel断裂，重置
 		if tunnel_error:
 			break
-
-		if not data_travaling:
-			#print '没有数据传输，歇1s'
-			time.sleep(1)
 
 	# end while True:
 

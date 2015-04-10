@@ -117,7 +117,13 @@ def del_peer_by_fd(_fd):
 	for peer in peers:
 		(dest_addr, local_addr), fd, x = peer
 		if fd == _fd:
-			print '将[(%s,%s), %d]移出peers' % (str(dest_addr), str(local_addr), _fd.fileno())
+			try:
+				fileno = _fd.fileno()
+			except socket.error, e:
+				# 当socket.recv 遇到 Connection timed out的时候，会报Bad file descriptor
+				fileno = -1
+				print e
+			print '将[(%s,%s), %d]移出peers' % (str(dest_addr), str(local_addr), fileno)
 			break
 	fd.close()
 	peers.remove(peer)
@@ -188,19 +194,23 @@ if __name__ == '__main__':
 		clear_tunnel_cache()
 
 		while True:
-			fds = []
-			for x, fd, x in peers:
-				fds.append(fd)
-			fds.append(tunnel_sock)
+			rfds = []
+			wfds = []
+			for x, fd, write_queue in peers:
+				rfds.append(fd)
+				if write_queue:
+					wfds.append(fd)
+			rfds.append(tunnel_sock)
+			if tunnel_write_queue:
+				wfds.append(tunnel_sock)
 
-			readable, writeable, exceptional = select.select(fds, fds, [], 10)
+			#print 'select: %d %d' % (len(rfds), len(wfds))
+			readable, writeable, exceptional = select.select(rfds, wfds, [], 30)
 
 			tunnel_error = False	# 通道错误标志
-			data_travaling = False	# 检测是否有数据传输
 
 			# 处理所有可读套接字
 			for fd in readable:
-				data_travaling = True
 				try:
 					new_data = fd.recv(CHUNCK_SIZE)
 				except socket.error, e:
@@ -255,7 +265,6 @@ if __name__ == '__main__':
 						found = True
 						break
 				if found:
-					data_travaling = True
 					try:
 						# 将数据写入真正的对端
 						fd.send(write_queue.pop(0))
@@ -274,10 +283,6 @@ if __name__ == '__main__':
 			# Tunnel断裂，重置
 			if tunnel_error:
 				break
-
-			if not data_travaling:
-				#print '没有数据传输，歇1s'
-				time.sleep(1)
 
 		# end while True:
 
