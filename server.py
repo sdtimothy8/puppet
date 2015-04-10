@@ -115,14 +115,9 @@ def del_peer_by_addr(addr_tuple):
 			(dest_addr, local_addr) = addr_tuple
 			print '将[%d, (%s,%s)]移出peers' % (fd.fileno(), str(dest_addr), str(local_addr))
 			break
-#	if found:
-#		fd.close()
-#		peers.remove(peer)
-#	else:
-#		(dest_addr, local_addr) = addr_tuple
-#		print '[del_peer_by_addr]can not found [%s] in peers' % (str(dest_addr), str(local_addr))
-#		for (dest_addr, local_addr), fd, x in peers:
-#			print '[del_peer_by_addr]', dest_addr, local_addr, fd, len(x)
+	if found:
+		fd.close()
+		peers.remove(peer)
 
 if __name__ == '__main__':
 	server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -151,7 +146,8 @@ if __name__ == '__main__':
 		if tunnel_sock:
 			fds.append(tunnel_sock)
 		rfds = fds[:]
-		rfds.append(server)
+		if tunnel_sock == None:
+			rfds.append(server)
 		rfds.append(local_server)
 
 		readable, writeable, exceptional = select.select(rfds, fds, [], 10)
@@ -166,6 +162,7 @@ if __name__ == '__main__':
 				tunnel_sock, addr = server.accept()
 				tunnel_write_queue = []
 				print '肉鸡上线[%s]' % str(addr)
+				server.close()
 				#peers.append((addr, tunnel_sock, tunnel_write_queue))
 			elif fd == local_server:
 				local_client_sock ,local_client_addr = local_server.accept()
