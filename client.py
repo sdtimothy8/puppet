@@ -30,7 +30,7 @@ def get_server_address():
 	'''
 		获取服务器IP+Port地址
 	'''
-	return ('127.0.0.1', 9527)
+	#return ('127.0.0.1', 9527)
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock.settimeout(10)
 	try:
@@ -181,9 +181,9 @@ if __name__ == '__main__':
 		try:
 			tunnel_sock.connect(server_addr)
 		except socket.error, e:
-			print '主动连接服务端失败，5s后重试'
+			print '主动连接服务端失败，1min后重试'
 			tunnel_sock.close()
-			time.sleep(5)
+			time.sleep(60)
 			continue
 
 		# 清空隧道写队列
