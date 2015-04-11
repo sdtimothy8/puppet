@@ -120,7 +120,7 @@ def del_peer_by_fd(_fd):
 			try:
 				fileno = _fd.fileno()
 			except socket.error, e:
-				# 当socket.recv 遇到 Connection timed out的时候，会报Bad file descriptor
+				# 当socket.recv 遇到 Connection timed out 或 Connection reset by peer的时候，会报Bad file descriptor,报错日志见(bug.txt:BUG1)
 				fileno = -1
 				print e
 			print '将[(%s,%s), %d]移出peers' % (str(dest_addr), str(local_addr), fileno)

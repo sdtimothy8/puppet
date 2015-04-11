@@ -1,0 +1,13 @@
+BUG1:当fd.recv()失败，报错Connection timed out 或 Connection reset by peer后，再调用fd.fileno()报错
+
+...
+[Errno 104] Connection reset by peer
+Traceback (most recent call last):
+  File "./client.py", line 224, in <module>
+    del_peer_by_fd(fd)
+  File "./client.py", line 119, in del_peer_by_fd
+    print '将[(%s,%s), %d]移出peers' % (str(dest_addr), str(local_addr), _fd.fileno())
+  File "<string>", line 1, in fileno
+  File "/usr/lib64/python2.6/socket.py", line 167, in _dummy
+    raise error(EBADF, 'Bad file descriptor')
+socket.error: [Errno 9] Bad file descriptor
