@@ -7,6 +7,9 @@ import struct
 import time
 
 CHUNCK_SIZE=10240
+NEW = 1
+DATA = 2
+END = 3
 
 # 所有代理连接的socket数据：地址，套接字，未发送完的数据
 peers = []	#(addr, fd, [])
@@ -78,18 +81,26 @@ def process_tunnel_data(new_data):
 
 	if remain_len == 0:
 		# 开始读取另一个数据块信息
-		if len(tunnel_data) < 16:	# 不足一个数据块头部信息
+		if len(tunnel_data) < 18:	# 不足一个数据块头部信息
 			return
 		# 读取一个数据块头部信息
-		head = tunnel_data[:16]
-		data = tunnel_data[16:]
+		head = tunnel_data[:18]
+		data = tunnel_data[18:]
 		dest_addr = hex2addr(head[:6])
 		local_addr = hex2addr(head[6:12])
-		remain_len = struct.unpack('!I', head[12:])[0]
+		status = struct.unpack('!H', head[12:14])[0]
+		remain_len = struct.unpack('!I', head[14:])[0]
 		current_addr_tuple = (dest_addr, local_addr)
-		if remain_len == 0:
-			# 数据块头部信息中的Len=0,表示关闭连接
+		if status == END and remain_len == 0:
+			# 数据块头部信息中的状态为END并且Len=0,表示关闭连接
 			del_peer_by_addr(current_addr_tuple)
+			current_addr_tuple = None
+			tunnel_data = data
+			process_tunnel_data('')
+			return
+		elif status == NEW and remain_len == 0:
+			new_connection(current_addr_tuple)
+			current_addr_tuple = None
 			tunnel_data = data
 			process_tunnel_data('')
 			return
@@ -112,21 +123,34 @@ def process_tunnel_data(new_data):
 		if tunnel_data:
 			process_tunnel_data('')
 
-def del_peer_by_fd(_fd):
+def del_peer_by_fd_and_tell_tunnel(_fd):
 	global peers
+	found = False
 	for peer in peers:
 		(dest_addr, local_addr), fd, x = peer
 		if fd == _fd:
+			found = True
 			try:
 				fileno = _fd.fileno()
 			except socket.error, e:
 				# 当socket.recv 遇到 Connection timed out 或 Connection reset by peer的时候，会报Bad file descriptor,报错日志见(bug.txt:BUG1)
 				fileno = -1
 				print e
-			print '将[(%s,%s), %d]移出peers' % (str(dest_addr), str(local_addr), fileno)
+			print '将[%d, (%s,%s)]移出peers' % (fileno, str(dest_addr), str(local_addr))
 			break
+	if not found:
+		print '[del_peer_by_fd_and_tell_tunnel] cannot find fd[%d] in peers' % _fd
+		return
 	fd.close()
 	peers.remove(peer)
+
+	# 通知Tunnel对方，此关闭连接
+	dest_addr_hex = addr2hex(dest_addr)
+	local_addr_hex = addr2hex(local_addr)
+	status_hex = struct.pack('!H', END)
+	zero_data_hex = struct.pack('!I', 0)
+	print '通知Tunnel对方 关闭[%s,%s]' % (str(dest_addr), str(local_addr))
+	tunnel_write_queue.append(dest_addr_hex + local_addr_hex + status_hex + zero_data_hex)
 
 def del_peer_by_addr(addr_tuple):
 	global peers
@@ -136,8 +160,14 @@ def del_peer_by_addr(addr_tuple):
 		if _addr_tuple == addr_tuple:
 			found = True
 			(dest_addr, local_addr) = addr_tuple
-			print '将[%d, (%s,%s)]移出peers' % (fd.fileno(), str(dest_addr), str(local_addr))
+			print '将[(%s,%s), %d]移出peers' % (str(dest_addr), str(local_addr), fd.fileno())
 			break
+	if not found:
+		(dest_addr, local_addr) = addr_tuple
+		print '[del_peer_by_addr] cannot find addr[%s,%s] in peers' % (str(dest_addr), str(local_addr))
+		return
+	fd.close()
+	peers.remove(peer)
 		
 def sendto_dest(addr_tuple, data):
 	'''
@@ -148,8 +178,13 @@ def sendto_dest(addr_tuple, data):
 		if addr_tuple == _addr_tuple:
 			write_queue.append(data)
 			return
+	print '[sendto_dest] cannot find %s' % str(addr_tuple)
 
-	# 若之前未建立连接，连接之
+def new_connection(addr_tuple):
+	'''
+		连接真正的对端
+	'''
+	global peers
 	fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	fd.setblocking(False)
 	try:
@@ -157,8 +192,7 @@ def sendto_dest(addr_tuple, data):
 		fd.connect(dest_addr)
 	except socket.error, e:
 		print e
-	# 待连接真正成功之时，再发送数据
-	peers.append((addr_tuple, fd, [data]))
+	peers.append((addr_tuple, fd, []))
 	
 
 if __name__ == '__main__':
@@ -232,12 +266,13 @@ if __name__ == '__main__':
 							break
 					#print '从真正对端[%s,%s]读取[%d]数据,开始送至隧道写队列' % (str(dest_addr), str(local_addr), len(new_data))
 					if len(new_data) == 0:
-						del_peer_by_fd(fd)
+						del_peer_by_fd_and_tell_tunnel(fd)
 					dest_addr_hex = addr2hex(dest_addr)
 					local_addr_hex = addr2hex(local_addr)
+					status_hex = struct.pack('!H', DATA)
 					data_len_hex = struct.pack('!I', len(new_data))
 					# 将从真正的对端读取的数据,加上数据块头部信息，一并写入通道
-					tunnel_write_queue.append(dest_addr_hex + local_addr_hex + data_len_hex + new_data)
+					tunnel_write_queue.append(dest_addr_hex + local_addr_hex + status_hex + data_len_hex + new_data)
 
 			# Tunnel断裂，重置
 			if tunnel_error:
@@ -270,15 +305,7 @@ if __name__ == '__main__':
 						fd.send(write_queue.pop(0))
 					except socket.error, e:
 						print '往真正对端写失败'
-						del_peer_by_fd(fd)
-
-						# 通知Tunnel对方，此关闭连接
-						dest_addr_hex = addr2hex(dest_addr)
-						local_addr_hex = addr2hex(local_addr)
-						zero_data_hex = struct.pack('!I', 0)
-						close_data = dest_addr_hex + local_addr_hex + zero_data_hex
-						print '通知Tunnel对方 关闭[%s]' % str(addr)
-						tunnel_write_queue.append(close_data)
+						del_peer_by_fd_and_tell_tunnel(fd)
 
 			# Tunnel断裂，重置
 			if tunnel_error:
