@@ -1,4 +1,5 @@
-BUG1:当fd.recv()失败，报错Connection timed out 或 Connection reset by peer后，再调用fd.fileno()报错
+BUG1:
+当fd.recv()失败，报错Connection timed out 或 Connection reset by peer后，再调用fd.fileno()报错
 
 ...
 [Errno 104] Connection reset by peer
@@ -11,3 +12,14 @@ Traceback (most recent call last):
   File "/usr/lib64/python2.6/socket.py", line 167, in _dummy
     raise error(EBADF, 'Bad file descriptor')
 socket.error: [Errno 9] Bad file descriptor
+
+BUG2:
+ssh主动连接，对方先发送第一个包[SSH-2.0-OpenSSH_5.3],而之前的策略是延迟建立真正连接，当本方发送第一个包后，client.py才建立真正的连接，故ssh连接一直失败。
+
+BUG3:
+解决一端删除peer，而不通知另一端删除peer、断开连接的问题
+        debug用到的一些命令
+        (1)wget www.baidu.com : www.baidu.com服务器主动断开连接
+        (2)curl www.baidu.com : www.baidu.com服务器不响应curl连接
+        (3)ssh XXXX  Ctrl+D   : 本方主动断开连接
+
