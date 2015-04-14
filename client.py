@@ -29,15 +29,42 @@ def hex2addr(hex):
 	ip = '%d.%d.%d.%d' % (a, b, c, d)
 	return (ip, port)
 
+def dns_resolver(name):
+	# 本地域名解析
+	try:
+		import socket
+        	results = socket.getaddrinfo(name,None)
+		for family, socktype, proto, canonname, sockaddr in results:
+			if len(sockaddr) == 2:
+				return sockaddr[0]
+	except socket.error, e:
+		print '本地域名解析错误', e
+
+	# google域名解析
+	import os, socket, re
+	seqid = os.urandom(2)
+	host = ''.join(chr(len(x))+x for x in name.split('.'))
+	data = '%s\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00%s\x00\x00\x01\x00\x01' % (seqid, host)
+	sock = socket.socket(socket.AF_INET,type=socket.SOCK_DGRAM)
+	sock.settimeout(None)
+	sock.sendto(data, ('8.8.8.8', 53))
+	data = sock.recv(512)
+	iplist = ['.'.join(str(ord(x)) for x in s) for s in re.findall('\xc0.\x00\x01\x00\x01.{6}(.{4})', data) if all(ord(x) <= 255 for x in s)]
+	if iplist:
+		return iplist[0]
+	print '8.8.8.8域名解析错误'
+	return name
+
 def get_server_address():
 	'''
 		获取服务器IP+Port地址
 	'''
 	#return ('127.0.0.1', 9527)
+	webip = dns_resolver('thickforest.github.io')
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock.settimeout(10)
 	try:
-		sock.connect(('thickforest.github.io', 80))
+		sock.connect((webip, 80))
 		sock.send('GET /ip HTTP/1.0\r\nHost: thickforest.github.io\r\n\r\n')
 		page = sock.recv(CHUNCK_SIZE)
 		sock.close()
