@@ -46,13 +46,17 @@ def dns_resolver(name):
 	host = ''.join(chr(len(x))+x for x in name.split('.'))
 	data = '%s\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00%s\x00\x00\x01\x00\x01' % (seqid, host)
 	sock = socket.socket(socket.AF_INET,type=socket.SOCK_DGRAM)
-	sock.settimeout(None)
+	sock.settimeout(30)
 	sock.sendto(data, ('8.8.8.8', 53))
-	data = sock.recv(512)
+	try:
+		data = sock.recv(512)
+	except socket.error, e:
+		print '8.8.8.8域名解析错误', e
+		return name
 	iplist = ['.'.join(str(ord(x)) for x in s) for s in re.findall('\xc0.\x00\x01\x00\x01.{6}(.{4})', data) if all(ord(x) <= 255 for x in s)]
 	if iplist:
 		return iplist[0]
-	print '8.8.8.8域名解析错误'
+	print '域名解析失败'
 	return name
 
 def get_server_address():
