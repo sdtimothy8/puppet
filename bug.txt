@@ -23,3 +23,18 @@ BUG3:
         (2)curl www.baidu.com : www.baidu.com服务器不响应curl连接
         (3)ssh XXXX  Ctrl+D   : 本方主动断开连接
 
+BUG4:
+client.py与server.py连上之后，若server.py断开，则client.py会一直卡住，不再重新连接server.py
+client.py打印如下：
+.....
+服务端：('117.111.111.111', 8080)
+主动连接服务端失败，1min后重试
+服务端：('117.111.111.111', 8080)
+主动连接服务端失败，1min后重试
+服务端：('124.133.100.197', 9527)
+[Ctrl+C结束掉]
+Traceback (most recent call last):
+  File "./client.py", line 273, in <module>
+    readable, writeable, exceptional = select.select(rfds, wfds, [], 30)
+KeyboardInterrupt
+!!!未解决!!!

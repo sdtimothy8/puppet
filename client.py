@@ -69,7 +69,7 @@ def get_server_address():
 	sock.settimeout(10)
 	try:
 		sock.connect((webip, 80))
-		sock.send('GET /ip HTTP/1.0\r\nHost: thickforest.github.io\r\n\r\n')
+		sock.send('GET /oray/home/ip HTTP/1.0\r\nHost: thickforest.github.io\r\n\r\n')
 		page = sock.recv(CHUNCK_SIZE)
 		sock.close()
 	except socket.error, e:
@@ -235,8 +235,8 @@ if __name__ == '__main__':
 		# 主动去获得服务端IP+Port
 		server_addr = get_server_address()
 		if not server_addr:
-			print '主动获取服务端IP+Port失败，5s后重试'
-			time.sleep(5)
+			print '主动获取服务端IP+Port失败，2min后重试'
+			time.sleep(120)
 			continue
 
 		print '服务端：%s' % str(server_addr)
