@@ -69,7 +69,7 @@ def get_server_address():
 	sock.settimeout(10)
 	try:
 		sock.connect((webip, 80))
-		sock.send('GET /oray/home/ip HTTP/1.0\r\nHost: thickforest.github.io\r\n\r\n')
+		sock.send('GET /oray/home/ip2 HTTP/1.0\r\nHost: thickforest.github.io\r\n\r\n')
 		page = sock.recv(CHUNCK_SIZE)
 		sock.close()
 	except socket.error, e:
