@@ -120,7 +120,7 @@ def del_peer_by_fd_and_tell_tunnel(_fd):
 	local_addr_hex = addr2hex(local_addr)
 	status_hex = struct.pack('!H', END)
 	zero_data_hex = struct.pack('!I', 0)
-	print '通知Tunnel对方 关闭[%s]' % str(addr)
+	print '通知Tunnel对方 关闭[%s]' % str(local_addr)
 	tunnel_write_queue.append(dest_addr_hex + local_addr_hex + status_hex + zero_data_hex)
 
 
@@ -143,7 +143,7 @@ def del_peer_by_addr(addr_tuple):
 
 if __name__ == '__main__':
 	server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	server_addr = ('0.0.0.0', 9527)
+	server_addr = ('0.0.0.0', 9528)
 	server.bind(server_addr)
 	server.setblocking(False)
 	server.listen(1)
