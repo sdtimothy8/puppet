@@ -243,6 +243,7 @@ if __name__ == '__main__':
 
 		# 主动去连接服务端
 		tunnel_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		tunnel_sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 		try:
 			tunnel_sock.connect(server_addr)
 		except socket.error, e:
