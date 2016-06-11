@@ -143,6 +143,7 @@ def del_peer_by_addr(addr_tuple):
 
 if __name__ == '__main__':
 	server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	server_addr = ('0.0.0.0', 9528)
 	server.bind(server_addr)
 	server.setblocking(False)
@@ -150,6 +151,7 @@ if __name__ == '__main__':
 	#peers.append((server_addr, server, None))
 
 	local_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	local_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	local_server_addr = ('0.0.0.0', 1080)
 	local_server.bind(local_server_addr)
 	local_server.setblocking(False)
