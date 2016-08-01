@@ -3,6 +3,7 @@
 
 import select
 import socket
+import ssl
 import struct
 import time
 
@@ -66,9 +67,10 @@ def get_server_address():
 	#return ('127.0.0.1', 9527)
 	webip = dns_resolver('thickforest.github.io')
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	sock = ssl.wrap_socket(sock)
 	sock.settimeout(10)
 	try:
-		sock.connect((webip, 80))
+		sock.connect((webip, 443))
 		sock.send('GET /oray/home/ip2 HTTP/1.0\r\nHost: thickforest.github.io\r\n\r\n')
 		page = sock.recv(CHUNCK_SIZE)
 		sock.close()
